@@ -25,32 +25,26 @@
 #include <string.h>
 #include <dirent.h>
 
-/* function declarations */
-int asprintf(char **, const char*, ...);
-int alphasort();
-int scandir();
-char* strcasestr();
+#define substr strstr
+#ifdef _GNU_SOURCE
+#define substr strcasestr
+#endif
 
+/* function declarations */
 static void bat();
 static void read_ac();
 static int batscan(const struct dirent *bat);
-static void msg(char*, char*, char*);
-
-/* variables */
-const char *bdir = "/sys/class/power_supply/";
+static void read_thermal();
 
 
-void
-msg(char *bat, char *percent, char *state)
-{
-  printf("%s: %s%%, %s\n", bat, percent, state);
-}
+static const char *bdir = "/sys/class/power_supply/";
+static const char *tdir = "/sys/class/thermal/";
 
-/* Scans for all batteries in power_supply directory */
+/* Scans for all batteries in bdir */
 int
 batscan(const struct dirent *bat)
 {
-  if(strcasestr(bat->d_name, "BAT"))
+  if(substr(bat->d_name, "BAT"))
     return 1;
   else
     return 0;
@@ -59,17 +53,17 @@ batscan(const struct dirent *bat)
 void
 bat()
 {
+  int i;
   struct dirent **batteries;
   int c;
   c = scandir(bdir, &batteries, batscan, alphasort);  
 
-  int i;
+ 
   for(i=0; i<c; i++){
     /** Read Capacity **/
-    char *capn;
-    asprintf(&capn, "%s%s/capacity", bdir, batteries[i]->d_name);
-    int capf = capn ? open(capn , O_RDONLY) : 0;
-    free(capn);
+    char capn[265];
+    snprintf(capn, 265, "%s%s/capacity", bdir, batteries[i]->d_name);
+    int capf = open(capn , O_RDONLY);
     
     ssize_t capsize = 0;
     char capbuf[10];
@@ -81,25 +75,22 @@ bat()
     snprintf(capacity, capsize, "%s", capbuf);
     
     /** Read status **/
-    char *stn;
-    asprintf(&stn, "%s%s/status", bdir, batteries[i]->d_name);
+    char stn[265];
+    snprintf(stn, 265, "%s%s/status", bdir, batteries[i]->d_name);
     /* open returns non-zero if successful, -1 if not */
     int st = open(stn, O_RDONLY);
-    free(stn);
     
     char stbuf[20];
-    ssize_t bts = 0;
+    ssize_t stsize = 0;
     if(st>0)
-      bts = read(st, &stbuf, 20);
+      stsize = read(st, &stbuf, 20);
     close(st);
     
-    
-    char state[bts];
-    snprintf(state, bts, "%s", stbuf);
-    
-    msg(batteries[i]->d_name, capsize ? capacity : "0", bts ? state : "");
-  }
-  return;
+    char state[stsize];
+    snprintf(state, stsize, "%s", stbuf);
+
+    printf("%s: %s%%, %s\n", batteries[i]->d_name, capsize ? capacity : "0", stsize ? state : "");
+}
 }
 
 /* Adapter info */
@@ -110,7 +101,47 @@ read_ac(){
   if(ac) read(ac, &buf, 1);
   close(ac);
   short online = atoi(buf);
+  
   printf("Adapter: %s\n", online ? "on-line" : "off-line");
+}
+
+/* Thermals */
+int
+thermscan(const struct dirent *dir)
+{
+  if(substr(dir->d_name, "thermal_zone"))
+     return 1;
+  else
+     return 0;
+}
+     
+void
+read_thermal()
+{
+  struct dirent **thermals;
+  int d;
+  int i;
+  ssize_t ts = 0;
+  char thermbuf[5];
+  int therm;
+  
+  d = scandir(tdir, &thermals, thermscan, alphasort);
+
+  for(i=0; i<d; i++){
+    char zn[265];
+    snprintf(zn, 265, "%s/%s/temp", tdir, thermals[i]->d_name);
+    int tf = open(zn, O_RDONLY);
+
+    if(tf>0)
+      ts = read(tf, &thermbuf, 5);
+    close(tf);
+    therm = atoi(thermbuf);
+    therm /= 1000;
+
+    if(!ts)
+      fprintf(stderr, "Thermal %d: Not Found\n", i);
+    printf("Thermal %d: %d C\n", i, therm);
+  }
 }
 
 void
@@ -121,11 +152,13 @@ help(){
 
 int
 main(int argc, char *argv[]){
+
   int c;
   unsigned short bflag = 0;
   unsigned short acflag = 0;
+  unsigned short tflag = 0;
   
-  while((c=getopt(argc, argv, "abh")) != -1)
+  while((c=getopt(argc, argv, "abht")) != -1)
     switch(c){
     case 'b':
       bflag=1;
@@ -133,15 +166,22 @@ main(int argc, char *argv[]){
     case 'a':
       acflag=1;
       break;
+    case 't':
+      tflag=1;
+      break;
     case 'h':
       help();
       break;
     }
-
+ 
   if(acflag)
-      read_ac();
+     read_ac();
   if(bflag)
       bat();
+  if(tflag)
+    read_thermal();
   if(argc==1)
       bat();
+  
+  return EXIT_SUCCESS;
 }
