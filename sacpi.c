@@ -171,6 +171,9 @@ main(int argc, char *argv[]){
     case 'h':
       help();
       break;
+    case '?':
+      help();
+      break;
     }
  
   if(acflag)
