@@ -24,7 +24,8 @@
  #include <stdio.h>
  #include <string.h>
  #include <dirent.h>
- 
+ #include "config.h"
+
  /* function declarations  */
  static void bat(const char *bdir);
  static void read_ac();
@@ -148,6 +149,14 @@
    puts("Usage: sacpi [option]\noptions are: -b for battery info, -a for AC adapter info");
  }
  
+ static void
+ version(){
+  printf("sacpi %s\na simple tool to display battery, AC, and thermal info.\n\
+Copyright (C) 2025 Topias Silfverhuth\n", VERSION);
+  puts("License GPLv2+: GNU GPL version 2 or later <https://www.gnu.org/licenses/old-licenses/gpl-2.0.html>\n\
+This program is free software: you are free to change and redistribute it.\n\
+There is NO WARRANTY, to the extent permitted by law.\n");
+ }
  
  int
  main(int argc, char *argv[]){
@@ -157,7 +166,7 @@
    unsigned short acflag = 0;
    unsigned short tflag = 0;
    
-   while((c=getopt(argc, argv, "abht")) != -1)
+   while((c=getopt(argc, argv, "abhtv")) != -1)
      switch(c){
      case 'b':
        bflag=1;
@@ -168,7 +177,13 @@
      case 't':
        tflag=1;
        break;
+     case 'v':
+       version();
+       break;
      case 'h':
+       help();
+       break;
+     case '?':
        help();
        break;
      }

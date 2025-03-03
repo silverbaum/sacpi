@@ -8,4 +8,4 @@ Makefile.bk
 config.h
 .deps
 *.status
-hide/
+stamp-h1
