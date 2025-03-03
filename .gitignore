@@ -1,2 +1,11 @@
 *.out
 *.o
+*.cache
+*.log
+*~
+Makefile
+Makefile.bk
+config.h
+.deps
+*.status
+hide/

@@ -1,0 +1,4 @@
+1.0
+- Battery, AC, and thermal info
+- currently and foreseeably hardcoded to /sys/class
+- Optional GNU extension for case insensitivity (strcasestr)

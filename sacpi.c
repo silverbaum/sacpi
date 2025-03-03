@@ -25,6 +25,7 @@
 #include <string.h>
 #include <dirent.h>
 
+
 /* strcasestr is a GNU extension for case-insensitive substring matching.  */
 #ifdef _GNU_SOURCE
 #define substr strcasestr
