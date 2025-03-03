@@ -25,17 +25,6 @@
 #include <string.h>
 #include <dirent.h>
 
-/* strcasestr is a GNU extension for case-insensitive substring matching.  */
-#ifdef _GNU_SOURCE
-#define substr strcasestr
-#endif
-#ifndef _GNU_SOURCE
-#define substr strstr
-#endif
-
-#define _POSIX_C_SOURCE 200809L
-
-
 /* function declarations  */
 static void bat(const char *bdir);
 static void read_ac();
@@ -50,7 +39,9 @@ static const char *tdir = "/sys/class/thermal";
 int
 batscan(const struct dirent *bat)
 {
-  if(substr(bat->d_name, "BAT"))
+  if(strstr(bat->d_name, "BAT"))
+    return 1;
+  else if(strstr(bat->d_name, "bat"))
     return 1;
   else
     return 0;
@@ -116,7 +107,7 @@ read_ac(){
 int
 thermscan(const struct dirent *dir)
 {
-  if(substr(dir->d_name, "thermal_zone"))
+  if(strstr(dir->d_name, "thermal_zone"))
      return 1;
   else
      return 0;

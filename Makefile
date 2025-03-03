@@ -8,9 +8,6 @@ CC=cc
 
 sacpi : sacpi.c
 	$(CC) $(CFLAGS) -o sacpi sacpi.c
-#gnu extension for case-insensitive strcasestr
-gnu:
-	$(CC) $(CFLAGS) -D_GNU_SOURCE -o sacpi sacpi.c
 install: 
 	mkdir -p $(DESTDIR)$(PREFIX)/bin
 	cp -f sacpi $(DESTDIR)$(PREFIX)/bin
