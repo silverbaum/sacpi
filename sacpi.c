@@ -25,12 +25,14 @@
 #include <string.h>
 #include <dirent.h>
 
+#define VERSION "1.0.2"
+#define _POSIX_C_SOURCE 200809L
+
 /* function declarations  */
 static void bat(const char *bdir);
 static void read_ac();
 static int batscan(const struct dirent *bat);
 static void read_thermal(const char *tdir);
-
 
 static const char *adir = "/sys/class/power_supply";
 static const char *tdir = "/sys/class/thermal";
@@ -143,11 +145,19 @@ read_thermal(const char *tdir)
   }
 }
 
-void
+static void
 help(){
   puts("Usage: sacpi [option]\noptions are: -b for battery info, -a for AC adapter info");
 }
-
+static void
+version(){
+  printf("acpi %s\n", VERSION);
+  puts("a simple tool to display battery, AC, and thermal info.\n\
+Copyright (C) 2025 Topias Silfverhuth\n\
+License GPLv2+: GNU GPL version 2 or later <https://www.gnu.org/licenses/old-licenses/gpl-2.0.html>\n\
+This is free software: you are free to change and redistribute it.\n\
+There is NO WARRANTY, to the extent permitted by law.\n");
+}
 
 int
 main(int argc, char *argv[]){
@@ -157,7 +167,7 @@ main(int argc, char *argv[]){
   unsigned short acflag = 0;
   unsigned short tflag = 0;
   
-  while((c=getopt(argc, argv, "abht")) != -1)
+  while((c=getopt(argc, argv, "abhtv")) != -1)
     switch(c){
     case 'b':
       bflag=1;
@@ -170,6 +180,9 @@ main(int argc, char *argv[]){
       break;
     case 'h':
       help();
+      break;
+    case 'v':
+      version();
       break;
     case '?':
       help();
