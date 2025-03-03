@@ -1,6 +1,6 @@
 #sacpi
 
-CFLAGS= -std=c99 -D_POSIX_C_SOURCE=200809L -Wall -pedantic 
+CFLAGS= -std=c99 -D_POSIX_C_SOURCE=200809L -Wall -pedantic #-D_GNU_SOURCE
 CC=cc
 
 sacpi : 

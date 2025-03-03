@@ -13,7 +13,7 @@
  * GNU General Public License for more details.
  * 
  * You should have received a copy of the GNU General Public License
- * along with this program.  If not, see <https://www.gnu.org/licenses/>.
+ * along with this program.  If not, see <https://www.gnu.org/licenses/>.  
  */
 
 
@@ -25,22 +25,28 @@
 #include <string.h>
 #include <dirent.h>
 
-#define substr strstr
+/* strcasestr is a GNU extension for case-insensitive substring matching.  */
 #ifdef _GNU_SOURCE
 #define substr strcasestr
 #endif
+#ifndef _GNU_SOURCE
+#define substr strstr
+#endif
 
-/* function declarations */
-static void bat();
+#define _POSIX_C_SOURCE 200809L
+
+
+/* function declarations  */
+static void bat(const char *bdir);
 static void read_ac();
 static int batscan(const struct dirent *bat);
-static void read_thermal();
+static void read_thermal(const char *tdir);
 
 
-static const char *bdir = "/sys/class/power_supply/";
-static const char *tdir = "/sys/class/thermal/";
+static const char *adir = "/sys/class/power_supply";
+static const char *tdir = "/sys/class/thermal";
 
-/* Scans for all batteries in bdir */
+/* Scans for all batteries in bdir(for scandir)  */
 int
 batscan(const struct dirent *bat)
 {
@@ -50,8 +56,9 @@ batscan(const struct dirent *bat)
     return 0;
 }
 
+/* Displays battery information */
 void
-bat()
+bat(const char *bdir)
 {
   int i;
   struct dirent **batteries;
@@ -61,8 +68,8 @@ bat()
  
   for(i=0; i<c; i++){
     /** Read Capacity **/
-    char capn[265];
-    snprintf(capn, 265, "%s%s/capacity", bdir, batteries[i]->d_name);
+    char capn[266];
+    snprintf(capn, 266, "%s/%s/capacity", bdir, batteries[i]->d_name);
     int capf = open(capn , O_RDONLY);
     
     ssize_t capsize = 0;
@@ -76,7 +83,7 @@ bat()
     
     /** Read status **/
     char stn[265];
-    snprintf(stn, 265, "%s%s/status", bdir, batteries[i]->d_name);
+    snprintf(stn, 265, "%s/%s/status", bdir, batteries[i]->d_name);
     /* open returns non-zero if successful, -1 if not */
     int st = open(stn, O_RDONLY);
     
@@ -93,7 +100,7 @@ bat()
 }
 }
 
-/* Adapter info */
+/*  AC adapter info  */
 void
 read_ac(){
   int ac = open("/sys/class/power_supply/AC/online", O_RDONLY);
@@ -105,7 +112,7 @@ read_ac(){
   printf("Adapter: %s\n", online ? "on-line" : "off-line");
 }
 
-/* Thermals */
+/* scandir filter function  */
 int
 thermscan(const struct dirent *dir)
 {
@@ -114,9 +121,10 @@ thermscan(const struct dirent *dir)
   else
      return 0;
 }
-     
+
+/*  Thermals  */
 void
-read_thermal()
+read_thermal(const char *tdir)
 {
   struct dirent **thermals;
   int d;
@@ -175,13 +183,13 @@ main(int argc, char *argv[]){
     }
  
   if(acflag)
-     read_ac();
+    read_ac();
   if(bflag)
-      bat();
+    bat(adir);
   if(tflag)
-    read_thermal();
+    read_thermal(tdir);
   if(argc==1)
-      bat();
+    bat(adir);
   
   return EXIT_SUCCESS;
 }
