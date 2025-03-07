@@ -151,7 +151,7 @@ help(){
 }
 static void
 version(){
-  printf("acpi %s\n", VERSION);
+  printf("sacpi %s\n", VERSION);
   puts("a simple tool to display battery, AC, and thermal info.\n\
 Copyright (C) 2025 Topias Silfverhuth\n\
 License GPLv2+: GNU GPL version 2 or later <https://www.gnu.org/licenses/old-licenses/gpl-2.0.html>\n\
