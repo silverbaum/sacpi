@@ -1,3 +1,10 @@
+1.1.0
+- long options, dynamically allocated strings
+- deps: glibc
+
+1.0.2
+- Removed extension silliness
+
 1.0
 - Battery, AC, and thermal info
 - currently and foreseeably hardcoded to /sys/class
