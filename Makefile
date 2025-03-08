@@ -3,16 +3,16 @@
 ###
 PREFIX=/usr/local
 ###
-CFLAGS= -std=c99 -D_POSIX_C_SOURCE=200809L -Wall -pedantic
+CFLAGS= -Wall -pedantic
 CC=cc
 
 sacpi : sacpi.c
 	$(CC) $(CFLAGS) -o sacpi sacpi.c
 install: 
-	mkdir -p $(DESTDIR)$(PREFIX)/bin
-	cp -f sacpi $(DESTDIR)$(PREFIX)/bin
-	chmod 755 $(DESTDIR)$(PREFIX)/bin/sacpi
+	mkdir -p $(PREFIX)/bin
+	cp -f sacpi $(PREFIX)/bin
+	chmod 755 $(PREFIX)/bin/sacpi
 uninstall:
-	rm $(DESTDIR)$(PREFIX)/bin/sacpi
+	rm $(PREFIX)/bin/sacpi
 clean:
 	rm sacpi

@@ -25,15 +25,17 @@
 #include <string.h>
 #include <dirent.h>
 
-#define VERSION "1.0.2"
+#define VERSION "1.0.3"
 #define _POSIX_C_SOURCE 200809L
 
 /* function declarations  */
+
 static void bat(const char *bdir);
-static void read_ac();
+static void read_ac(const char *acdir);
 static int batscan(const struct dirent *bat);
 static void read_thermal(const char *tdir);
 
+/* Directories for battery & ac, thermal info respectively. */
 static const char *adir = "/sys/class/power_supply";
 static const char *tdir = "/sys/class/thermal";
 
@@ -49,7 +51,7 @@ batscan(const struct dirent *bat)
     return 0;
 }
 
-/* Displays battery information */
+/** Displays battery information **/
 void
 bat(const char *bdir)
 {
@@ -60,11 +62,15 @@ bat(const char *bdir)
 
  
   for(i=0; i<c; i++){
-    /** Read Capacity **/
-    char capn[266];
-    snprintf(capn, 266, "%s/%s/capacity", bdir, batteries[i]->d_name);
-    int capf = open(capn , O_RDONLY);
-    
+    /* Read Capacity */
+    char *capn;
+    int capf;
+
+    asprintf(&capn, "%s/%s/capacity", bdir, batteries[i]->d_name);
+    if(capn)
+      capf = open(capn , O_RDONLY);
+    free(capn);
+
     ssize_t capsize = 0;
     char capbuf[10];
     if(capf > 0)
@@ -74,7 +80,7 @@ bat(const char *bdir)
     char capacity[capsize];
     snprintf(capacity, capsize, "%s", capbuf);
     
-    /** Read status **/
+    /* Read status */
     char stn[265];
     snprintf(stn, 265, "%s/%s/status", bdir, batteries[i]->d_name);
     /* open returns non-zero if successful, -1 if not */
@@ -90,16 +96,24 @@ bat(const char *bdir)
     snprintf(state, stsize, "%s", stbuf);
 
     printf("%s: %s%%, %s\n", batteries[i]->d_name, capsize ? capacity : "0", stsize ? state : "");
-}
+  }
 }
 
-/*  AC adapter info  */
+/**  AC adapter info  **/
 void
-read_ac(){
-  int ac = open("/sys/class/power_supply/AC/online", O_RDONLY);
+read_ac(const char *acdir){
+  char *acn;
+  int acf;
+  asprintf(&acn, "%s/%s/online", acdir, "AC");
+  
+  if(acn)
+    acf = open(acn , O_RDONLY);
+  free(acn);
+
   char buf[2];
-  if(ac) read(ac, &buf, 1);
-  close(ac);
+  if(acf)
+    read(acf, &buf, 1);
+  close(acf);
   short online = atoi(buf);
   
   printf("Adapter: %s\n", online ? "on-line" : "off-line");
@@ -115,7 +129,7 @@ thermscan(const struct dirent *dir)
      return 0;
 }
 
-/*  Thermals  */
+/**  Thermals  **/
 void
 read_thermal(const char *tdir)
 {
@@ -125,13 +139,16 @@ read_thermal(const char *tdir)
   ssize_t ts = 0;
   char thermbuf[5];
   int therm;
+  int tf;
   
   d = scandir(tdir, &thermals, thermscan, alphasort);
 
   for(i=0; i<d; i++){
-    char zn[265];
-    snprintf(zn, 265, "%s/%s/temp", tdir, thermals[i]->d_name);
-    int tf = open(zn, O_RDONLY);
+    char *zn;
+    asprintf(&zn, "%s/%s/temp", tdir, thermals[i]->d_name);
+    if(zn)
+      tf = open(zn, O_RDONLY);
+    free(zn);	
 
     if(tf>0)
       ts = read(tf, &thermbuf, 5);
@@ -147,8 +164,15 @@ read_thermal(const char *tdir)
 
 static void
 help(){
-  puts("Usage: sacpi [option]\noptions are: -b for battery info, -a for AC adapter info");
+  puts("Usage: sacpi [option]\noptions are: \n\
+-b, --battery      for battery info \n\
+-a, --ac           for AC adapter info\n\
+-t, --thermal      for thermal info\n\
+-A, --all          prints all the options\n\
+-h, --help         prints this help\n\
+-v, --version	   displays the version and license information");
 }
+
 static void
 version(){
   printf("sacpi %s\n", VERSION);
@@ -159,6 +183,7 @@ This is free software: you are free to change and redistribute it.\n\
 There is NO WARRANTY, to the extent permitted by law.\n");
 }
 
+
 int
 main(int argc, char *argv[]){
 
@@ -166,8 +191,20 @@ main(int argc, char *argv[]){
   unsigned short bflag = 0;
   unsigned short acflag = 0;
   unsigned short tflag = 0;
+
+  static struct option longopts[] =
+    {
+      {"version", no_argument, 0, 'v'},
+      {"help", no_argument, 0, 'h'},
+      {"battery", no_argument, 0, 'b'},
+      {"thermal", no_argument, 0, 't'},
+      {"ac", no_argument, 0, 'a'},
+      {"all", no_argument, 0, 'A'}
+    };
+  int optindex = 0;
   
-  while((c=getopt(argc, argv, "abhtv")) != -1)
+  
+  while((c=getopt_long(argc, argv, "Aabhtv", longopts, &optindex)) != -1)
     switch(c){
     case 'b':
       bflag=1;
@@ -176,6 +213,11 @@ main(int argc, char *argv[]){
       acflag=1;
       break;
     case 't':
+      tflag=1;
+      break;
+    case 'A':
+      bflag=1;
+      acflag=1;
       tflag=1;
       break;
     case 'h':
@@ -190,7 +232,7 @@ main(int argc, char *argv[]){
     }
  
   if(acflag)
-    read_ac();
+    read_ac(adir);
   if(bflag)
     bat(adir);
   if(tflag)
