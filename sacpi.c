@@ -25,7 +25,7 @@
 #include <string.h>
 #include <dirent.h>
 
-#define VERSION "1.0.3"
+#define VERSION "1.1"
 #define _POSIX_C_SOURCE 200809L
 
 /* function declarations  */
