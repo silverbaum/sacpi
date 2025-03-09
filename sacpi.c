@@ -246,6 +246,8 @@ main(int argc, char *argv[]){
       break;
     case 'V':
       verbose=1;
+      if(argc==2)
+	bflag=1;
       break;
     case 'h':
       help();
