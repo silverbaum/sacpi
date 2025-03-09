@@ -25,15 +25,15 @@
 #include <string.h>
 #include <dirent.h>
 
-#define VERSION "1.1"
+#define VERSION "1.1.1"
 #define _POSIX_C_SOURCE 200809L
 
 /* function declarations  */
 
-static void bat(const char *bdir);
-static void read_ac(const char *acdir);
+static void bat(const char *bdir, unsigned short vflag);
+static void read_ac(const char *acdir, unsigned short vflag);
 static int batscan(const struct dirent *bat);
-static void read_thermal(const char *tdir);
+static void read_thermal(const char *tdir, unsigned short vflag);
 
 /* Directories for battery & ac, thermal info respectively. */
 static const char *adir = "/sys/class/power_supply";
@@ -53,13 +53,17 @@ batscan(const struct dirent *bat)
 
 /** Displays battery information **/
 void
-bat(const char *bdir)
+bat(const char *bdir, unsigned short vflag)
 {
   int i;
   struct dirent **batteries;
   int c;
   c = scandir(bdir, &batteries, batscan, alphasort);  
-
+  
+  if(!c && vflag){
+	  fputs("No batteries found", stderr);
+	  return;
+  }
  
   for(i=0; i<c; i++){
     /* Read Capacity */
@@ -81,18 +85,24 @@ bat(const char *bdir)
     snprintf(capacity, capsize, "%s", capbuf);
     
     /* Read status */
-    char stn[265];
-    snprintf(stn, 265, "%s/%s/status", bdir, batteries[i]->d_name);
-    /* open returns non-zero if successful, -1 if not */
-    int st = open(stn, O_RDONLY);
-    
-    char stbuf[20];
+    char *stn;
+    int st;
+    char stbuf[30];
     ssize_t stsize = 0;
-    if(st>0)
-      stsize = read(st, &stbuf, 20);
-    close(st);
+
+    asprintf(&stn, "%s/%s/status", bdir, batteries[i]->d_name);
+   
+    if(stn){
+	st = open(stn, O_RDONLY);
+    	free(stn);
+    }
+
+    if(st>0){
+      stsize = read(st, &stbuf, 30);
+      close(st);
+    }
     
-    char state[stsize];
+    char state[stsize+1];
     snprintf(state, stsize, "%s", stbuf);
 
     printf("%s: %s%%, %s\n", batteries[i]->d_name, capsize ? capacity : "0", stsize ? state : "");
@@ -101,7 +111,7 @@ bat(const char *bdir)
 
 /**  AC adapter info  **/
 void
-read_ac(const char *acdir){
+read_ac(const char *acdir, unsigned short vflag){
   char *acn;
   int acf;
   asprintf(&acn, "%s/%s/online", acdir, "AC");
@@ -113,6 +123,12 @@ read_ac(const char *acdir){
   char buf[2];
   if(acf)
     read(acf, &buf, 1);
+
+  else if(!acf && vflag){
+    fputs("No AC adapter found", stderr);
+    return;
+  }
+
   close(acf);
   short online = atoi(buf);
   
@@ -131,7 +147,7 @@ thermscan(const struct dirent *dir)
 
 /**  Thermals  **/
 void
-read_thermal(const char *tdir)
+read_thermal(const char *tdir, unsigned short vflag)
 {
   struct dirent **thermals;
   int d;
@@ -142,6 +158,11 @@ read_thermal(const char *tdir)
   int tf;
   
   d = scandir(tdir, &thermals, thermscan, alphasort);
+
+  if(!d && vflag){
+    fputs("No thermals found\n", stderr);
+    return;
+  }
 
   for(i=0; i<d; i++){
     char *zn;
@@ -169,6 +190,7 @@ help(){
 -a, --ac           for AC adapter info\n\
 -t, --thermal      for thermal info\n\
 -A, --all          prints all the options\n\
+-V, --verbose      verbose, outputs errors if no devices are found\n\
 -h, --help         prints this help\n\
 -v, --version	   displays the version and license information");
 }
@@ -191,6 +213,7 @@ main(int argc, char *argv[]){
   unsigned short bflag = 0;
   unsigned short acflag = 0;
   unsigned short tflag = 0;
+  unsigned short verbose = 0;
 
   static struct option longopts[] =
     {
@@ -199,12 +222,13 @@ main(int argc, char *argv[]){
       {"battery", no_argument, 0, 'b'},
       {"thermal", no_argument, 0, 't'},
       {"ac", no_argument, 0, 'a'},
-      {"all", no_argument, 0, 'A'}
+      {"all", no_argument, 0, 'A'},
+      {"verbose", no_argument, 0, 'V'}
     };
   int optindex = 0;
   
   
-  while((c=getopt_long(argc, argv, "Aabhtv", longopts, &optindex)) != -1)
+  while((c=getopt_long(argc, argv, "AabhtvV", longopts, &optindex)) != -1)
     switch(c){
     case 'b':
       bflag=1;
@@ -220,6 +244,9 @@ main(int argc, char *argv[]){
       acflag=1;
       tflag=1;
       break;
+    case 'V':
+      verbose=1;
+      break;
     case 'h':
       help();
       break;
@@ -232,13 +259,13 @@ main(int argc, char *argv[]){
     }
  
   if(acflag)
-    read_ac(adir);
+    read_ac(adir, verbose);
   if(bflag)
-    bat(adir);
+    bat(adir, verbose);
   if(tflag)
-    read_thermal(tdir);
+    read_thermal(tdir, verbose);
   if(argc==1)
-    bat(adir);
+    bat(adir, verbose);
   
   return EXIT_SUCCESS;
 }
