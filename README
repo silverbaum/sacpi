@@ -3,4 +3,5 @@ sacpi is the small and clumsy power information tool
 It is a linux-specific unportable tool that reads /sys/class to find
 battery, AC, and thermal information.
 
-
+Installation:
+make install clean
