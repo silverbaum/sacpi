@@ -67,8 +67,8 @@ bat(const char *bdir, unsigned short vflag)
  
   for(i=0; i<c; i++){
     /* Read Capacity */
-    char *capn;
-    int capf;
+    char *capn = 0;
+    int capf = 0;
 
     asprintf(&capn, "%s/%s/capacity", bdir, batteries[i]->d_name);
     if(capn)
@@ -85,8 +85,8 @@ bat(const char *bdir, unsigned short vflag)
     snprintf(capacity, capsize, "%s", capbuf);
     
     /* Read status */
-    char *stn;
-    int st;
+    char *stn = 0;
+    int st = 0;
     char stbuf[30];
     ssize_t stsize = 0;
 
@@ -112,8 +112,8 @@ bat(const char *bdir, unsigned short vflag)
 /**  AC adapter info  **/
 void
 read_ac(const char *acdir, unsigned short vflag){
-  char *acn;
-  int acf;
+  char *acn = 0;
+  int acf = 0;
   asprintf(&acn, "%s/%s/online", acdir, "AC");
   
   if(acn)
@@ -150,12 +150,12 @@ void
 read_thermal(const char *tdir, unsigned short vflag)
 {
   struct dirent **thermals;
-  int d;
+  int d = 0;
   int i;
   ssize_t ts = 0;
   char thermbuf[5];
   int therm;
-  int tf;
+  int tf = 0;
   
   d = scandir(tdir, &thermals, thermscan, alphasort);
 
