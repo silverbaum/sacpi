@@ -24,6 +24,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <dirent.h>
+#include <errno.h>
 
 #define VERSION "1.1.1"
 #define _POSIX_C_SOURCE 200809L
@@ -51,17 +52,19 @@ batscan(const struct dirent *bat)
     return 0;
 }
 
-/** Displays battery information **/
+/** scans adir for batteries using scandir, iterates through the found batteries
+ *  (directories containing BAT or bat in their name). vflag is for verbose, which
+ *  displays a message if no batteries are found */
 void
-bat(const char *bdir, unsigned short vflag)
+bat(const char *adir, unsigned short vflag)
 {
   int i;
   struct dirent **batteries;
   int c;
-  c = scandir(bdir, &batteries, batscan, alphasort);  
+  c = scandir(adir, &batteries, batscan, alphasort);
   
-  if(!c && vflag){
-	  fputs("No batteries found", stderr);
+  if(c<=0 && vflag){
+	  perror("No batteries found");
 	  return;
   }
  
@@ -70,7 +73,7 @@ bat(const char *bdir, unsigned short vflag)
     char *capn = 0;
     int capf = 0;
 
-    asprintf(&capn, "%s/%s/capacity", bdir, batteries[i]->d_name);
+    asprintf(&capn, "%s/%s/capacity", adir, batteries[i]->d_name);
     if(capn)
       capf = open(capn , O_RDONLY);
     free(capn);
@@ -90,7 +93,7 @@ bat(const char *bdir, unsigned short vflag)
     char stbuf[30];
     ssize_t stsize = 0;
 
-    asprintf(&stn, "%s/%s/status", bdir, batteries[i]->d_name);
+    asprintf(&stn, "%s/%s/status", adir, batteries[i]->d_name);
    
     if(stn){
 	st = open(stn, O_RDONLY);
@@ -109,30 +112,44 @@ bat(const char *bdir, unsigned short vflag)
   }
 }
 
-/**  AC adapter info  **/
+/*  AC adapter info,
+ *  looks for acdir/AC/ and reads acdir/AC/online  */
 void
-read_ac(const char *acdir, unsigned short vflag){
+read_ac(const char *acdir, unsigned short vflag)
+{
   char *acn = 0;
   int acf = 0;
-  asprintf(&acn, "%s/%s/online", acdir, "AC");
+
+  struct dirent *entry;
+  DIR *d = opendir(acdir);
+  errno = 0;
+
+  while((entry = readdir(d)) != NULL){
+    if(errno == EBADF)
+        perror("Directory not found");
+    if(!strncmp(entry->d_name, "AC", 2))
+        asprintf(&acn, "%s/%s/online", acdir, "AC");
+  }
+
   
   if(acn)
     acf = open(acn , O_RDONLY);
   free(acn);
 
-  char buf[2];
+  char buf = 0;
   if(acf)
     read(acf, &buf, 1);
 
   else if(!acf && vflag){
-    fputs("No AC adapter found", stderr);
+    fputs("No AC adapter found\n", stderr);
     return;
   }
 
+   short online = atoi(&buf);
+
+  if(acf)
+    printf("Adapter: %s\n", online ? "on-line" : "off-line");
   close(acf);
-  short online = atoi(buf);
-  
-  printf("Adapter: %s\n", online ? "on-line" : "off-line");
 }
 
 /* scandir filter function  */
@@ -226,9 +243,9 @@ main(int argc, char *argv[]){
       {"verbose", no_argument, 0, 'V'}
     };
   int optindex = 0;
+  int optc = 0;
   
-  
-  while((c=getopt_long(argc, argv, "AabhtvV", longopts, &optindex)) != -1)
+  while((c=getopt_long(argc, argv, "AabhtvV", longopts, &optindex)) != -1){
     switch(c){
     case 'b':
       bflag=1;
@@ -246,8 +263,6 @@ main(int argc, char *argv[]){
       break;
     case 'V':
       verbose=1;
-      if(argc==2)
-	bflag=1;
       break;
     case 'h':
       help();
@@ -259,6 +274,8 @@ main(int argc, char *argv[]){
       help();
       break;
     }
+    ++optc;
+  }
  
   if(acflag)
     read_ac(adir, verbose);
@@ -266,7 +283,7 @@ main(int argc, char *argv[]){
     bat(adir, verbose);
   if(tflag)
     read_thermal(tdir, verbose);
-  if(argc==1)
+  if(argc==1 || (optc == 1 && verbose))
     bat(adir, verbose);
   
   return EXIT_SUCCESS;
