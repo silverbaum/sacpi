@@ -238,13 +238,11 @@ main(int argc, char *argv[]){
       {"battery", no_argument, 0, 'b'},
       {"thermal", no_argument, 0, 't'},
       {"ac", no_argument, 0, 'a'},
-      {"all", no_argument, 0, 'A'},
-      {"verbose", no_argument, 0, 'V'}
+      {"all", no_argument, 0, 'A'}
     };
   int optindex = 0;
-  int optc = 0;
   
-  while((c=getopt_long(argc, argv, "AabhtvV", longopts, &optindex)) != -1){
+  while((c=getopt_long(argc, argv, "AabhtvV", longopts, &optindex)) != -1)
     switch(c){
     case 'b':
       bflag=1;
@@ -270,8 +268,7 @@ main(int argc, char *argv[]){
       help();
       break;
     }
-    ++optc;
-  }
+
  
   
   if(bflag)
