@@ -31,10 +31,11 @@
 
 /* function declarations  */
 
-static void bat(const char *bdir, unsigned short vflag);
-static void read_ac(const char *acdir, unsigned short vflag);
+static inline void bat(const char *bdir, unsigned short vflag);
+static inline void read_ac(const char *acdir, unsigned short vflag);
 static int batscan(const struct dirent *bat);
-static void read_thermal(const char *tdir, unsigned short vflag);
+static int thermscan(const struct dirent *dir);
+static inline void read_thermal(const char *tdir, unsigned short vflag);
 
 /* Directories for battery & ac, thermal info respectively. */
 static const char *adir = "/sys/class/power_supply";
