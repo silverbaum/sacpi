@@ -130,7 +130,7 @@ read_ac(const char *acdir, unsigned short vflag)
     if(!strncmp(entry->d_name, "AC", 2))
         asprintf(&acn, "%s/%s/online", acdir, "AC");
   }
-
+  closedir(d);
   
   if(acn)
     acf = open(acn , O_RDONLY);
@@ -145,7 +145,7 @@ read_ac(const char *acdir, unsigned short vflag)
     return;
   }
 
-   short online = atoi(&buf);
+  short online = atoi(&buf);
 
   if(acf)
     printf("Adapter: %s\n", online ? "on-line" : "off-line");
@@ -277,10 +277,11 @@ main(int argc, char *argv[]){
     ++optc;
   }
  
-  if(acflag)
-    read_ac(adir, verbose);
+  
   if(bflag)
     bat(adir, verbose);
+  if(acflag)
+    read_ac(adir, verbose);
   if(tflag)
     read_thermal(tdir, verbose);
   if(argc==1 || (optc == 1 && verbose))
