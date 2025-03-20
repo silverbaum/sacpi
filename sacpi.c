@@ -31,11 +31,11 @@
 
 /* function declarations  */
 
-static inline void bat(const char *bdir, unsigned short vflag);
-static inline void read_ac(const char *acdir, unsigned short vflag);
+static inline void bat(const char *bdir);
+static inline void read_ac(const char *acdir);
 static int batscan(const struct dirent *bat);
 static int thermscan(const struct dirent *dir);
-static inline void read_thermal(const char *tdir, unsigned short vflag);
+static inline void read_thermal(const char *tdir);
 
 /* Directories for battery & ac, thermal info respectively. */
 static const char *adir = "/sys/class/power_supply";
@@ -57,14 +57,14 @@ batscan(const struct dirent *bat)
  *  (directories containing BAT or bat in their name). vflag is for verbose, which
  *  displays a message if no batteries are found */
 void
-bat(const char *adir, unsigned short vflag)
+bat(const char *adir)
 {
   int i;
   struct dirent **batteries;
   int c;
   c = scandir(adir, &batteries, batscan, alphasort);
   
-  if(c<=0 && vflag){
+  if(c<=0){
 	  perror("No batteries found");
 	  return;
   }
@@ -116,7 +116,7 @@ bat(const char *adir, unsigned short vflag)
 /*  AC adapter info,
  *  looks for acdir/AC/ and reads acdir/AC/online  */
 void
-read_ac(const char *acdir, unsigned short vflag)
+read_ac(const char *acdir)
 {
   char *acn = 0;
   int acf = 0;
@@ -141,7 +141,7 @@ read_ac(const char *acdir, unsigned short vflag)
   if(acf)
     read(acf, &buf, 1);
 
-  else if(!acf && vflag){
+  else if(!acf){
     fputs("No AC adapter found\n", stderr);
     return;
   }
@@ -165,7 +165,7 @@ thermscan(const struct dirent *dir)
 
 /**  Thermals  **/
 void
-read_thermal(const char *tdir, unsigned short vflag)
+read_thermal(const char *tdir)
 {
   struct dirent **thermals;
   int d = 0;
@@ -177,7 +177,7 @@ read_thermal(const char *tdir, unsigned short vflag)
   
   d = scandir(tdir, &thermals, thermscan, alphasort);
 
-  if(!d && vflag){
+  if(!d){
     fputs("No thermals found\n", stderr);
     return;
   }
@@ -208,7 +208,6 @@ help(){
 -a, --ac           for AC adapter info\n\
 -t, --thermal      for thermal info\n\
 -A, --all          prints all the options\n\
--V, --verbose      verbose, outputs errors if no devices are found\n\
 -h, --help         prints this help\n\
 -v, --version	   displays the version and license information");
 }
@@ -231,7 +230,6 @@ main(int argc, char *argv[]){
   unsigned short bflag = 0;
   unsigned short acflag = 0;
   unsigned short tflag = 0;
-  unsigned short verbose = 0;
 
   static struct option longopts[] =
     {
@@ -262,10 +260,7 @@ main(int argc, char *argv[]){
       acflag=1;
       tflag=1;
       break;
-    case 'V':
-      verbose=1;
-      break;
-    case 'h':
+   case 'h':
       help();
       break;
     case 'v':
@@ -280,13 +275,13 @@ main(int argc, char *argv[]){
  
   
   if(bflag)
-    bat(adir, verbose);
+    bat(adir);
   if(acflag)
-    read_ac(adir, verbose);
+    read_ac(adir);
   if(tflag)
-    read_thermal(tdir, verbose);
-  if(argc==1 || (optc == 1 && verbose))
-    bat(adir, verbose);
+    read_thermal(tdir);
+  if(argc==1)
+    bat(adir);
   
   return EXIT_SUCCESS;
 }
