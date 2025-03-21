@@ -242,7 +242,7 @@ main(int argc, char *argv[]){
     };
   int optindex = 0;
   
-  while((c=getopt_long(argc, argv, "AabhtvV", longopts, &optindex)) != -1)
+  while((c=getopt_long(argc, argv, "Aabhtv", longopts, &optindex)) != -1)
     switch(c){
     case 'b':
       bflag=1;
