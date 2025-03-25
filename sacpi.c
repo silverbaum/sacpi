@@ -45,72 +45,73 @@ static const char *tdir = "/sys/class/thermal";
 int
 batscan(const struct dirent *bat)
 {
-  if(strstr(bat->d_name, "BAT"))
-    return 1;
-  else if(strstr(bat->d_name, "bat"))
-    return 1;
-  else
-    return 0;
+    if(strstr(bat->d_name, "BAT"))
+      return 1;
+    else if(strstr(bat->d_name, "bat"))
+      return 1;
+    else
+      return 0;
 }
 
 /** scans adir for batteries using scandir, iterates through the found batteries
- *  (directories containing BAT or bat in their name). vflag is for verbose, which
- *  displays a message if no batteries are found */
+ *  (directories containing BAT or bat in their name). */
 void
 bat(const char *adir)
 {
-  int i;
-  struct dirent **batteries;
-  int c;
-  c = scandir(adir, &batteries, batscan, alphasort);
+    int i;
+    struct dirent **batteries;
+    int c;
+    c = scandir(adir, &batteries, batscan, alphasort);
+    
+    if(c<=0){
+      perror("No batteries found");
+      return;
+    }
   
-  if(c<=0){
-	  perror("No batteries found");
-	  return;
-  }
- 
-  for(i=0; i<c; i++){
-    /* Read Capacity */
-    char *capn = 0;
-    int capf = 0;
+    for(i=0; i<c; i++){
+            /* Read Capacity */
+            char *capn = 0;
+            int capf = 0;
 
-    asprintf(&capn, "%s/%s/capacity", adir, batteries[i]->d_name);
-    if(capn)
-      capf = open(capn , O_RDONLY);
-    free(capn);
+            asprintf(&capn, "%s/%s/capacity", adir, batteries[i]->d_name);
+            if(capn)
+              capf = open(capn , O_RDONLY);
+            free(capn);
 
-    ssize_t capsize = 0;
-    char capbuf[10];
-    if(capf > 0)
-      capsize = read(capf, &capbuf, 9);
-    close(capf);
-    
-    char capacity[capsize];
-    snprintf(capacity, capsize, "%s", capbuf);
-    
-    /* Read status */
-    char *stn = 0;
-    int st = 0;
-    char stbuf[30];
-    ssize_t stsize = 0;
+            ssize_t capsize = 0;
+            char capbuf[10];
+            if(capf > 0)
+              capsize = read(capf, &capbuf, 9);
+            close(capf);
+            
+            char capacity[capsize];
+            snprintf(capacity, capsize, "%s", capbuf);
+            
+            /* Read status */
+            char *stn = 0;
+            int st = 0;
+            char stbuf[30];
+            ssize_t stsize = 0;
 
-    asprintf(&stn, "%s/%s/status", adir, batteries[i]->d_name);
-   
-    if(stn){
-	st = open(stn, O_RDONLY);
-    	free(stn);
+            asprintf(&stn, "%s/%s/status", adir, batteries[i]->d_name);
+          
+            if(stn){
+          st = open(stn, O_RDONLY);
+              free(stn);
+            }
+
+            if(st>0){
+              stsize = read(st, &stbuf, 30);
+              close(st);
+            }
+            
+            char state[stsize+1];
+            snprintf(state, stsize, "%s", stbuf);
+
+            printf("%s: %s%%, %s\n", batteries[i]->d_name, capsize ? capacity : "0", stsize ? state : "");
+            free(batteries[i]);
     }
-
-    if(st>0){
-      stsize = read(st, &stbuf, 30);
-      close(st);
-    }
-    
-    char state[stsize+1];
-    snprintf(state, stsize, "%s", stbuf);
-
-    printf("%s: %s%%, %s\n", batteries[i]->d_name, capsize ? capacity : "0", stsize ? state : "");
-  }
+    free(batteries);
 }
 
 /*  AC adapter info,
@@ -118,87 +119,95 @@ bat(const char *adir)
 void
 read_ac(const char *acdir)
 {
-  char *acn = 0;
-  int acf = 0;
+    char *acn = 0;
+    int acf = 0;
+    
+    struct dirent *entry;
+    DIR *d = opendir(acdir);
+    errno = 0;
 
-  struct dirent *entry;
-  DIR *d = opendir(acdir);
-  errno = 0;
+    if(!d){
+      perror("AC not found");
+      return;
+    }
 
-  while((entry = readdir(d)) != NULL){
-    if(errno == EBADF)
-        perror("Directory not found");
-    if(!strncmp(entry->d_name, "AC", 2))
-        asprintf(&acn, "%s/%s/online", acdir, "AC");
-  }
-  closedir(d);
-  
-  if(acn)
+  	while((entry = readdir(d)) != NULL){
+    		if(errno == EBADF)
+        		perror("AC not found");
+
+    		if(!strncmp(entry->d_name, "AC", 2))
+        		asprintf(&acn, "%s/%s/online", acdir, "AC");
+  	}
+	
+ 	  closedir(d);
+	
+  	if(!acn){
+		fputs("No AC adapter found\n", stderr);
+    		return;
+	}
+	
     acf = open(acn , O_RDONLY);
-  free(acn);
-
-  char buf = 0;
-  if(acf)
+  	free(acn);
+	
+	
+	  char buf[2] = {0};
     read(acf, &buf, 1);
-
-  else if(!acf){
-    fputs("No AC adapter found\n", stderr);
-    return;
-  }
-
-  short online = atoi(&buf);
-
-  if(acf)
-    printf("Adapter: %s\n", online ? "on-line" : "off-line");
-  close(acf);
+	
+	  short online = atoi(buf);
+	
+	  printf("Adapter: %s\n", online ? "on-line" : "off-line");
+  	close(acf);
 }
 
 /* scandir filter function  */
 int
 thermscan(const struct dirent *dir)
 {
-  if(strstr(dir->d_name, "thermal_zone"))
-     return 1;
-  else
-     return 0;
+    if(strstr(dir->d_name, "thermal_zone"))
+            return 1;
+    else
+            return 0;
 }
 
 /**  Thermals  **/
 void
 read_thermal(const char *tdir)
 {
-  struct dirent **thermals;
-  int d = 0;
-  int i;
-  ssize_t ts = 0;
-  char thermbuf[5];
-  int therm;
-  int tf = 0;
-  
-  d = scandir(tdir, &thermals, thermscan, alphasort);
+    struct dirent **thermals;
+    int d = 0;
+    int i;
+    ssize_t ts = 0;
+    char thermbuf[6];
+    int therm;
+    int tf = 0;
+    
+    d = scandir(tdir, &thermals, thermscan, alphasort);
 
-  if(!d){
-    fputs("No thermals found\n", stderr);
-    return;
-  }
+    if(!d){
+        fputs("No thermals found\n", stderr);
+        return;
+    }
 
-  for(i=0; i<d; i++){
-    char *zn;
-    asprintf(&zn, "%s/%s/temp", tdir, thermals[i]->d_name);
-    if(zn)
-      tf = open(zn, O_RDONLY);
-    free(zn);	
+    for(i=0; i<d; i++){
+            char *zn;
+            asprintf(&zn, "%s/%s/temp", tdir, thermals[i]->d_name);
+            if(zn)
+              tf = open(zn, O_RDONLY);
+            free(zn);	
 
-    if(tf>0)
-      ts = read(tf, &thermbuf, 5);
-    close(tf);
-    therm = atoi(thermbuf);
-    therm /= 1000;
+            if(tf>0)
+              ts = read(tf, &thermbuf, 5);
+            close(tf);
+            therm = atoi(thermbuf);
+            therm /= 1000;
 
-    if(!ts)
-      fprintf(stderr, "Thermal %d: Not Found\n", i);
-    printf("Thermal %d: %d C\n", i, therm);
-  }
+            if(!ts)
+              fprintf(stderr, "Thermal %d: Not Found\n", i);
+            printf("Thermal %d: %d C\n", i, therm);
+
+            free(thermals[i]);
+    }
+    free(thermals);
 }
 
 static void
@@ -226,12 +235,12 @@ There is NO WARRANTY, to the extent permitted by law.\n");
 int
 main(int argc, char *argv[]){
 
-  int c;
-  unsigned short bflag = 0;
-  unsigned short acflag = 0;
-  unsigned short tflag = 0;
+    int c;
+    unsigned short bflag = 0;
+    unsigned short acflag = 0;
+    unsigned short tflag = 0;
 
-  static struct option longopts[] =
+    static struct option longopts[] =
     {
       {"version", no_argument, 0, 'v'},
       {"help", no_argument, 0, 'h'},
@@ -240,45 +249,46 @@ main(int argc, char *argv[]){
       {"ac", no_argument, 0, 'a'},
       {"all", no_argument, 0, 'A'}
     };
-  int optindex = 0;
+    int optindex = 0;
   
-  while((c=getopt_long(argc, argv, "Aabhtv", longopts, &optindex)) != -1)
-    switch(c){
-    case 'b':
-      bflag=1;
-      break;
-    case 'a':
-      acflag=1;
-      break;
-    case 't':
-      tflag=1;
-      break;
-    case 'A':
-      bflag=1;
-      acflag=1;
-      tflag=1;
-      break;
-   case 'h':
-      help();
-      break;
-    case 'v':
-      version();
-      break;
-    case '?':
-      help();
-      break;
-    }
+    while((c=getopt_long(argc, argv, "Aabhtv", longopts, &optindex)) != -1)
+      switch(c){
+      case 'b':
+        bflag=1;
+        break;
+      case 'a':
+        acflag=1;
+        break;
+      case 't':
+        tflag=1;
+        break;
+      case 'A':
+        bflag=1;
+        acflag=1;
+        tflag=1;
+        break;
+      case 'h':
+        help();
+        break;
+      case 'v':
+        version();
+        return 0;
+        break;
+      case '?':
+        help();
+        break;
+      }
 
  
   
-  if(bflag)
-    bat(adir);
-  if(acflag)
-    read_ac(adir);
-  if(tflag)
-    read_thermal(tdir);
-  if(argc==1)
-    bat(adir);
-  
-  return EXIT_SUCCESS;
+    if(bflag)
+      bat(adir);
+    if(acflag)
+      read_ac(adir);
+    if(tflag)
+      read_thermal(tdir);
+    if(argc==1)
+      bat(adir);
+    
+    return EXIT_SUCCESS;
 }
