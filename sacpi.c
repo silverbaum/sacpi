@@ -26,15 +26,15 @@
 #include <dirent.h>
 #include <errno.h>
 
-#define VERSION "1.1.1"
-#define _POSIX_C_SOURCE 200809L
+#define VERSION "1.1.2"
 
 /* function declarations  */
+extern int alphasort(const struct dirent **a, const struct dirent **b);
 
+static inline int batscan(const struct dirent *bat);
 static inline void bat(const char *bdir);
 static inline void read_ac(const char *acdir);
-static int batscan(const struct dirent *bat);
-static int thermscan(const struct dirent *dir);
+static inline int thermscan(const struct dirent *dir);
 static inline void read_thermal(const char *tdir);
 
 /* Directories for battery & ac, thermal info respectively. */
@@ -45,9 +45,7 @@ static const char *tdir = "/sys/class/thermal";
 int
 batscan(const struct dirent *bat)
 {
-    if(strstr(bat->d_name, "BAT"))
-      return 1;
-    else if(strstr(bat->d_name, "bat"))
+    if (strcasestr(bat->d_name, "bat"))
       return 1;
     else
       return 0;
@@ -58,60 +56,61 @@ batscan(const struct dirent *bat)
 void
 bat(const char *adir)
 {
-    int i;
-    struct dirent **batteries;
-    int c;
-    c = scandir(adir, &batteries, batscan, alphasort);
-    
-    if(c<=0){
-      perror("No batteries found");
-      return;
-    }
+    	int i;
+    	struct dirent **batteries;
+    	int c;
+    	if ((c = scandir(adir, &batteries, batscan, alphasort)) < 0){
+      		perror("scandir");
+      		return;
+    	}
+        if (!c){
+            fputs("No batteries found", stderr);
+        }
+
   
-    for(i=0; i<c; i++){
-            /* Read Capacity */
-            char *capn = 0;
-            int capf = 0;
+    	for (i=0; i<c; i++){
+            	/* Read Capacity */
+        	    char *capn = 0;
+            	int capf = 0;
 
-            asprintf(&capn, "%s/%s/capacity", adir, batteries[i]->d_name);
-            if(capn)
-              capf = open(capn , O_RDONLY);
-            free(capn);
+            	if ((asprintf(&capn, "%s/%s/capacity", adir, batteries[i]->d_name)) < 0)
+                    perror("asprintf");
+            	if(capn)
+              		capf = open(capn , O_RDONLY);
+            	free(capn);
+		
+            	ssize_t capsize = 0;
+            	char capbuf[5];
+            	if(capf > 0){
+              		capsize = read(capf, &capbuf, 4);
+            		close(capf);
+		        }
+                int capacity = (int)strtoul(capbuf, NULL, 10);
+		
+            	/* Read status */
+            	char *stn = 0;
+            	int st = 0;
+            	char stbuf[31];
+            	ssize_t stsize = 0;
+		
+            	if ((asprintf(&stn, "%s/%s/status", adir, batteries[i]->d_name)) < 0)
+                    perror("asprintf");
+                
+            	if(stn){
+                    st = open(stn, O_RDONLY);
+                    free(stn);
+            	}
+            	if(st > 0){
+              		stsize = read(st, &stbuf, 30);
+              		stbuf[stsize] = '\0';
+			        close(st);
+            	}
 
-            ssize_t capsize = 0;
-            char capbuf[10];
-            if(capf > 0)
-              capsize = read(capf, &capbuf, 9);
-            close(capf);
-            
-            char capacity[capsize];
-            snprintf(capacity, capsize, "%s", capbuf);
-            
-            /* Read status */
-            char *stn = 0;
-            int st = 0;
-            char stbuf[30];
-            ssize_t stsize = 0;
-
-            asprintf(&stn, "%s/%s/status", adir, batteries[i]->d_name);
-          
-            if(stn){
-          st = open(stn, O_RDONLY);
-              free(stn);
-            }
-
-            if(st>0){
-              stsize = read(st, &stbuf, 30);
-              close(st);
-            }
-            
-            char state[stsize+1];
-            snprintf(state, stsize, "%s", stbuf);
-
-            printf("%s: %s%%, %s\n", batteries[i]->d_name, capsize ? capacity : "0", stsize ? state : "");
-            free(batteries[i]);
-    }
-    free(batteries);
+            	printf("%s: %d%%, %s", batteries[i]->d_name, capsize ? capacity : 0, stsize ? stbuf : "");
+            	
+		        free(batteries[i]);
+    	}
+    	free(batteries);
 }
 
 /*  AC adapter info,
@@ -119,44 +118,48 @@ bat(const char *adir)
 void
 read_ac(const char *acdir)
 {
-    char *acn = 0;
-    int acf = 0;
+    	char *acn = 0;
+    	int acf = 0;
     
-    struct dirent *entry;
-    DIR *d = opendir(acdir);
-    errno = 0;
+    	struct dirent *entry;
+    	DIR *d = opendir(acdir);
+    	if(!d){
+      		perror("AC not found");
+      		return;
+  	    }
 
-    if(!d){
-      perror("AC not found");
-      return;
-    }
-
-  	while((entry = readdir(d)) != NULL){
+  	    while((entry = readdir(d)) != NULL){
     		if(errno == EBADF)
         		perror("AC not found");
 
     		if(!strncmp(entry->d_name, "AC", 2))
-        		asprintf(&acn, "%s/%s/online", acdir, "AC");
-  	}
+        		if ((asprintf(&acn, "%s/%s/online", acdir, "AC")) < 0)
+                    perror("asprintf");
+  	    }
 	
- 	  closedir(d);
+ 	    closedir(d);
 	
-  	if(!acn){
-		fputs("No AC adapter found\n", stderr);
-    		return;
-	}
+  	    if(!acn){
+		    fputs("No AC adapter found\n", stderr);
+    	    return;
+	    }
 	
-    acf = open(acn , O_RDONLY);
-  	free(acn);
+    	if ((acf = open(acn , O_RDONLY)) < 0) {
+		perror("open");
+		return;
+	    }
+  	    free(acn);
 	
 	
-	  char buf[2] = {0};
-    read(acf, &buf, 1);
+	    char buf[2] = {0};
+        if((read(acf, &buf, 1)) < 0){
+            perror("read");
+        }
 	
-	  short online = atoi(buf);
+	    short online = atoi(buf);
 	
-	  printf("Adapter: %s\n", online ? "on-line" : "off-line");
-  	close(acf);
+	    printf("Adapter: %s\n", online ? "on-line" : "off-line");
+  	    close(acf);
 }
 
 /* scandir filter function  */
@@ -181,25 +184,34 @@ read_thermal(const char *tdir)
     int therm;
     int tf = 0;
     
-    d = scandir(tdir, &thermals, thermscan, alphasort);
-
+    if ((d = scandir(tdir, &thermals, thermscan, alphasort)) < 0){
+        perror("scandir");
+        return;
+    }
     if(!d){
-        fputs("No thermals found\n", stderr);
+        fputs("No thermals found", stderr);
         return;
     }
 
     for(i=0; i<d; i++){
             char *zn;
-            asprintf(&zn, "%s/%s/temp", tdir, thermals[i]->d_name);
-            if(zn)
-              tf = open(zn, O_RDONLY);
-            free(zn);	
+            if((asprintf(&zn, "%s/%s/temp", tdir, thermals[i]->d_name)) < 0){
+                perror("asprintf");
+                continue;
+            }
 
-            if(tf>0)
-              ts = read(tf, &thermbuf, 5);
+            if((tf = open(zn, O_RDONLY)) <= 0){
+                perror("open");
+                continue;
+            }
+            free(zn);
+
+            if((ts = read(tf, &thermbuf, 5)) < 0)
+                perror("read");
             close(tf);
-            therm = atoi(thermbuf);
-            therm /= 1000;
+            char* end = &thermbuf[ts-2];
+            therm = strtol(thermbuf, &end, 10);
+            therm *= 0.001;
 
             if(!ts)
               fprintf(stderr, "Thermal %d: Not Found\n", i);
@@ -210,9 +222,9 @@ read_thermal(const char *tdir)
     free(thermals);
 }
 
-static void
-help(){
-  puts("Usage: sacpi [option]\noptions are: \n\
+static inline void
+help(void){
+    puts("Usage: sacpi [option]\noptions are: \n\
 -b, --battery      for battery info \n\
 -a, --ac           for AC adapter info\n\
 -t, --thermal      for thermal info\n\
@@ -221,10 +233,10 @@ help(){
 -v, --version	   displays the version and license information");
 }
 
-static void
-version(){
-  printf("sacpi %s\n", VERSION);
-  puts("a simple tool to display battery, AC, and thermal info.\n\
+static inline void
+version(void){
+    printf("sacpi %s\n", VERSION);
+    puts("a simple tool to display battery, AC, and thermal info.\n\
 Copyright (C) 2025 Topias Silfverhuth\n\
 License GPLv2+: GNU GPL version 2 or later <https://www.gnu.org/licenses/old-licenses/gpl-2.0.html>\n\
 This is free software: you are free to change and redistribute it.\n\
@@ -236,9 +248,7 @@ int
 main(int argc, char *argv[]){
 
     int c;
-    unsigned short bflag = 0;
-    unsigned short acflag = 0;
-    unsigned short tflag = 0;
+    unsigned short bflag = 0, acflag = 0, tflag = 0;
 
     static struct option longopts[] =
     {
@@ -269,14 +279,13 @@ main(int argc, char *argv[]){
         break;
       case 'h':
         help();
-        break;
+	    return 0;
       case 'v':
         version();
         return 0;
-        break;
       case '?':
         help();
-        break;
+	    return 0;
       }
 
  

@@ -1,14 +1,12 @@
-#make sacpi
-
 ###
 PREFIX=/usr/local
 ###
-CFLAGS= -Wall -pedantic
+CFLAGS= -Wall -O2 -D_POSIX_C_SOURCE_200809L -std=gnu99
 CC=cc
 
 sacpi : sacpi.c
 	$(CC) $(CFLAGS) -o sacpi sacpi.c
-install: 
+install: sacpi
 	mkdir -p $(PREFIX)/bin
 	cp -f sacpi $(PREFIX)/bin
 	chmod 755 $(PREFIX)/bin/sacpi
