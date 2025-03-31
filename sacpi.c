@@ -189,7 +189,7 @@ read_thermal(const char *tdir)
         return;
     }
     if(!d){
-        fputs("No thermals found", stderr);
+        fputs("No thermals found\n", stderr);
         return;
     }
 
