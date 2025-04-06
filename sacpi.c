@@ -64,7 +64,7 @@ bat(const char *adir)
       		return;
     	}
         if (!c){
-            fputs("No batteries found", stderr);
+            fputs("No batteries found\n", stderr);
         }
 
   
