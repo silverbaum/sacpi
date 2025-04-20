@@ -28,6 +28,8 @@
 
 #define VERSION "1.1.2"
 
+
+
 /* function declarations  */
 extern int alphasort(const struct dirent **a, const struct dirent **b);
 
@@ -41,6 +43,7 @@ static inline void read_thermal(const char *tdir);
 static const char *adir = "/sys/class/power_supply";
 static const char *tdir = "/sys/class/thermal";
 
+
 /* Scans for all batteries in bdir(for scandir)  */
 int
 batscan(const struct dirent *bat)
@@ -52,7 +55,8 @@ batscan(const struct dirent *bat)
 }
 
 /** scans adir for batteries using scandir, iterates through the found batteries
- *  (directories containing BAT or bat in their name). */
+ *  (directories containing BAT or bat in their name). My laptop had multiple batteries
+ *  which was the reason for creating this, as other tools had no support for multiple batteries */
 void
 bat(const char *adir)
 {
@@ -70,7 +74,7 @@ bat(const char *adir)
   
     	for (i=0; i<c; i++){
             	/* Read Capacity */
-        	    char *capn = 0;
+        	char *capn = 0;
             	int capf = 0;
 
             	if ((asprintf(&capn, "%s/%s/capacity", adir, batteries[i]->d_name)) < 0)
@@ -94,11 +98,11 @@ bat(const char *adir)
             	ssize_t stsize = 0;
 		
             	if ((asprintf(&stn, "%s/%s/status", adir, batteries[i]->d_name)) < 0)
-                    perror("asprintf");
+                        perror("asprintf");
                 
             	if(stn){
-                    st = open(stn, O_RDONLY);
-                    free(stn);
+                        st = open(stn, O_RDONLY);
+                        free(stn);
             	}
             	if(st > 0){
               		stsize = read(st, &stbuf, 30);
@@ -106,14 +110,17 @@ bat(const char *adir)
 			        close(st);
             	}
 
+		
+
+
             	printf("%s: %d%%, %s", batteries[i]->d_name, capsize ? capacity : 0, stsize ? stbuf : "");
             	
-		        free(batteries[i]);
+		free(batteries[i]);
     	}
     	free(batteries);
 }
 
-/*  AC adapter info,
+/*  AC adapter status
  *  looks for acdir/AC/ and reads acdir/AC/online  */
 void
 read_ac(const char *acdir)
@@ -133,7 +140,7 @@ read_ac(const char *acdir)
         		perror("AC not found");
 
     		if(!strncmp(entry->d_name, "AC", 2))
-        		if ((asprintf(&acn, "%s/%s/online", acdir, "AC")) < 0)
+        		if ((asprintf(&acn, "%s/%s/online", acdir, entry->d_name)) < 0)
                     perror("asprintf");
   	    }
 	
@@ -226,9 +233,9 @@ static inline void
 help(void){
     puts("Usage: sacpi [option]\noptions are: \n\
 -b, --battery      for battery info \n\
--a, --ac           for AC adapter info\n\
--t, --thermal      for thermal info\n\
--A, --all          prints all the options\n\
+-a, --ac           AC adapter status\n\
+-t, --thermal      thermal info\n\
+-A, --all          prints all available info\n\
 -h, --help         prints this help\n\
 -v, --version	   displays the version and license information");
 }
